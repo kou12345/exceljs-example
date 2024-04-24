@@ -1,22 +1,88 @@
 import * as fs from "fs";
-import * as ExcelJS from "exceljs";
+import * as exceljs from "exceljs";
 
-const workbook = new ExcelJS.Workbook();
+const workbook = new exceljs.Workbook();
 const pathName = "/Users/kou12345/Downloads/無題のスプレッドシート.xlsx";
 
-/*
-出力例
-a b c
-1
-2 変更後
-3
-4
-5
-6
-7
-*/
+const parsedCellValue = (cell: exceljs.Cell): string => {
+  const cellValue = cell.value;
+  // merged cell
+  if (cell.isMerged && cell.master !== cell) {
+    return "";
+  }
+  // null
+  if (cellValue === null) {
+    return "";
+  }
+  // number
+  if (typeof cellValue === "number") {
+    return cellValue.toString();
+  }
+  // string
+  if (typeof cellValue === "string") {
+    return cellValue;
+  }
+  // Date
+  if (typeof cellValue === "object" && cellValue instanceof Date) {
+    return cellValue.toISOString();
+  }
+  // exceljs.CellHyperlinkValue
+  if (
+    typeof cellValue === "object" &&
+    cellValue !== null &&
+    "hyperlink" in cellValue
+  ) {
+    return cellValue.text;
+  }
+  // exceljs.CellFormulaValue
+  if (
+    typeof cellValue === "object" &&
+    cellValue !== null &&
+    "formula" in cellValue
+  ) {
+    return cellValue.result?.toString() || "";
+  }
+  // exceljs.CellSharedFormulaValue
+  if (
+    typeof cellValue === "object" &&
+    cellValue !== null &&
+    "sharedFormula" in cellValue
+  ) {
+    return cellValue.result?.toString() || "";
+  }
+  // Array Formula
+  if (
+    typeof cellValue === "object" &&
+    cellValue !== null &&
+    "result" in cellValue
+  ) {
+    return cellValue.result?.toString() || "";
+  }
+  // exceljs.CellRichTextValue
+  if (
+    typeof cellValue === "object" &&
+    cellValue !== null &&
+    "richText" in cellValue
+  ) {
+    return cellValue.richText.map((rt) => rt.text).join("");
+  }
+  // boolean
+  if (typeof cellValue === "boolean") {
+    return cellValue.toString();
+  }
+  // exceljs.CellErrorValue
+  if (
+    typeof cellValue === "object" &&
+    cellValue !== null &&
+    "error" in cellValue
+  ) {
+    return cellValue.error;
+  }
+  return "";
+};
+
 const getParsedSheetData = (
-  workbook: ExcelJS.Workbook,
+  workbook: exceljs.Workbook,
   sheetName: string
 ): string => {
   const worksheet = workbook.getWorksheet(sheetName);
@@ -25,10 +91,10 @@ const getParsedSheetData = (
   }
   const sheetData: string[][] = [];
 
-  worksheet.eachRow((row, rowNumber) => {
+  worksheet.eachRow((row) => {
     const rowData: string[] = [];
-    row.eachCell((cell, colNumber) => {
-      rowData.push(cell.value?.toString() || "");
+    row.eachCell((cell) => {
+      rowData.push(parsedCellValue(cell));
     });
     sheetData.push(rowData);
   });
@@ -43,7 +109,7 @@ const getParsedSheetData = (
 };
 
 const highlightCellsWithKeyword = (
-  workbook: ExcelJS.Workbook,
+  workbook: exceljs.Workbook,
   sheetName: string,
   keywords: string[]
 ): void => {
@@ -59,10 +125,6 @@ const highlightCellsWithKeyword = (
 
       // console.log(keywords);
       if (keywords.some((keyword) => cellValue === keyword)) {
-        console.log("highlight");
-        console.log(cell.value);
-        // ! この時点でkeywordと一致したvalueを持つセルが取得できている
-        // ! なのに、一致しないセルの背景色も変わってしまう
         /*
         https://github.com/exceljs/exceljs/issues/2055#issuecomment-1436262550
         lib は Excel からスタイルを読み取り、影響を受けるセルは Excel ファイル内の 1 つのスタイル オブジェクトを共有します。
@@ -93,7 +155,9 @@ const highlightCellsWithKeyword = (
 
   // ! なぜか、数字を入力すると全ての文字が入力されているセルの背景色が変わる
   // 漢字の場合は文字列のセルが対象になる
-  highlightCellsWithKeyword(workbook, "シート1", ["4"]);
+  // highlightCellsWithKeyword(workbook, "シート1", ["4"]);
+
+  console.log(getParsedSheetData(workbook, "シート1"));
 
   // console.log(worksheet.rowCount);
   // console.log(worksheet.columnCount);
@@ -168,10 +232,10 @@ const highlightCellsWithKeyword = (
   // };
   // B3.value = "変更後";
 
-  worksheet.getCell("B5").value = "10";
-  worksheet.getCell("C5").value = "2";
+  // worksheet.getCell("B5").value = "10";
+  // worksheet.getCell("C5").value = "2";
 
-  // 書き込み
-  await workbook.xlsx.writeFile(pathName);
-  console.log("Done");
+  // // 書き込み
+  // await workbook.xlsx.writeFile(pathName);
+  // console.log("Done");
 })();
